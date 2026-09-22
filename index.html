@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -38590,7 +38591,7 @@ function renderD2() {
         lv.textContent = _capLieu(g.ville);
         infoRow.appendChild(lv);
         const ld = document.createElement('div');
-        const _d = _moisSansPoint(g.datesTxt).replace(/ /g, ' ').replace(/, /g, ', ');
+        const _d = _moisSansPoint(g.datesTxt).replace(/ /g, ' ').replace(/, /g, ', ');
         /* v2292 (demande de Yo) : « page decor : supprime l'icone calendrier blanc et rouge
            des dates. Et aligne les dates sans l'icone. » Plus d'emoji, donc plus besoin du
            calage vertical de _iconeCalHaut : la date part au meme bord que le nom du lieu. */
@@ -40920,7 +40921,7 @@ function d2ModulesHTML(item) {
   return html;
 }
 
-const APP_VERSION = 'v2397';
+const APP_VERSION = 'v2398';
 
 /* ── v2155 (demande de Yo) — LE BOUTON « MAINS » ─────────────────────────────────────────
    Sur chaque page (sauf M.e.s), un seul bouton (2 mains) a la place du « + » : il deploie
@@ -46783,21 +46784,24 @@ function camOuvrir(input) {
   o.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;">'
     + '<button type="button" onclick="camFermer()" aria-label="Fermer" style="' + bt + 'width:40px;height:40px;background:rgba(255,255,255,.15);color:#fff;font-size:22px;">&times;</button>'
     + '<div style="display:flex;border:1px solid #fff;border-radius:10px;overflow:hidden;">'
-    +   '<button type="button" id="cam-a-photos" onclick="camMode(\'photos\')" style="' + bt + 'border-radius:0;padding:8px 14px;font-size:13px;">Photos</button>'
-    +   '<button type="button" id="cam-a-planche" onclick="camMode(\'planche\')" style="' + bt + 'border-radius:0;padding:8px 14px;font-size:13px;">Planche</button>'
+    +   '<button type="button" id="cam-a-photos" onclick="camMode(\'photos\')" style="' + bt + 'border-radius:0;padding:8px 12px;font-size:13px;">Photos</button>'
+    +   '<button type="button" id="cam-a-planche" onclick="camMode(\'planche\')" style="' + bt + 'border-radius:0;padding:8px 12px;font-size:13px;">Planche</button>'
+    +   '<button type="button" id="cam-a-pano" onclick="camMode(\'pano\')" style="' + bt + 'border-radius:0;padding:8px 12px;font-size:13px;">Pano</button>'
     + '</div>'
     + '<button type="button" onclick="camTermine()" style="' + bt + 'height:40px;padding:0 12px;background:#16a34a;color:#fff;font-size:13px;">Terminé</button>'
     + '</div>'
     + '<div style="flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;">'
     +   '<video id="cam-a-video" autoplay playsinline muted style="max-width:100%;max-height:100%;"></video>'
     +   '<div id="cam-a-flash" style="position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .15s;"></div>'
+    +   '<div id="cam-a-pano-aide" style="position:absolute;left:0;right:0;top:12px;text-align:center;font-size:13px;font-weight:700;text-shadow:0 1px 3px #000;display:none;"></div>'
+    +   '<canvas id="cam-a-pano-apercu" style="position:absolute;left:12px;right:12px;bottom:10px;height:44px;width:calc(100% - 24px);display:none;border:1px solid #fff;border-radius:4px;background:#000;"></canvas>'
     + '</div>'
     + '<div style="display:flex;align-items:center;gap:12px;padding:12px 12px calc(16px + env(safe-area-inset-bottom));">'
     +   '<div style="flex:1;min-width:0;display:flex;align-items:center;gap:6px;">'
     +     '<button type="button" onclick="camPhototheque()" style="' + bt + 'flex-shrink:0;height:40px;padding:0 10px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;">Photothèque</button>'
     +     '<div id="cam-a-vign" style="flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;"></div>'
     +   '</div>'
-    +   '<button type="button" onclick="camDeclencher()" aria-label="Prendre la photo" style="flex-shrink:0;width:70px;height:70px;border-radius:50%;border:4px solid #fff;background:rgba(255,255,255,.25);cursor:pointer;"></button>'
+    +   '<button type="button" id="cam-a-declencheur" onclick="camDeclencher()" aria-label="Prendre la photo" style="flex-shrink:0;width:70px;height:70px;border-radius:50%;border:4px solid #fff;background:rgba(255,255,255,.25);cursor:pointer;"></button>'
     +   '<div id="cam-a-nb" style="flex:1;text-align:right;font-size:13px;opacity:.8;">0</div>'
     + '</div>';
   camMode('photos');
@@ -46806,8 +46810,12 @@ function camOuvrir(input) {
     .catch(function () { const inp = _cam && _cam.input; camFermer(); if (inp) { showToast('Caméra indisponible — choix habituel'); inp._camDirect = true; inp.click(); } });
 }
 function camMode(m) {
-  if (!_cam) return; _cam.mode = m;
-  [['cam-a-photos', 'photos'], ['cam-a-planche', 'planche']].forEach(function (x) {
+  if (!_cam) return;
+  if (_cam.pano) camPanoStop();   /* v2398 : changer de mode arrête un pano en cours (il est gardé) */
+  _cam.mode = m;
+  const aide = document.getElementById('cam-a-pano-aide');
+  if (aide) { aide.style.display = (m === 'pano') ? 'block' : 'none'; aide.textContent = 'Appuie, puis tourne lentement →'; }
+  [['cam-a-photos', 'photos'], ['cam-a-planche', 'planche'], ['cam-a-pano', 'pano']].forEach(function (x) {
     const b = document.getElementById(x[0]); if (!b) return;
     b.style.background = (m === x[1]) ? '#fff' : 'transparent'; b.style.color = (m === x[1]) ? '#111' : '#fff';
   });
@@ -46815,6 +46823,7 @@ function camMode(m) {
 function camDeclencher() {
   const v = document.getElementById('cam-a-video');
   if (!_cam || !v || !v.videoWidth) return;
+  if (_cam.mode === 'pano') { if (_cam.pano) camPanoStop(); else camPanoDebut(); return; }   /* v2398 */
   const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
   c.getContext('2d').drawImage(v, 0, 0);
   c.toBlob(function (bl) {
@@ -46827,7 +46836,102 @@ function camDeclencher() {
   }, 'image/jpeg', 0.9);
   const fl = document.getElementById('cam-a-flash'); fl.style.opacity = '0.8'; setTimeout(function () { fl.style.opacity = '0'; }, 120);
 }
+/* v2398 (demande de Yo) — PANO : on tourne lentement ; à chaque image de la caméra, une bande
+   verticale prise au CENTRE est posée à la suite des précédentes. Sa largeur suit l'angle réel
+   de rotation (gyroscope : rotationRate.gamma = rotation autour de l'axe vertical du téléphone
+   tenu droit), d'où une image sans étirement si la vitesse varie. Sans gyroscope, bandes de
+   largeur fixe (il faut alors tourner régulièrement). Arrêt : déclencheur, Terminé, autre mode
+   ou 8000 px de large. Le pano rejoint les photos prises (vignette), puis part avec Terminé. */
+const _PANO_FOV = 50;          /* champ horizontal estimé de la caméra arrière, téléphone en portrait (degrés) */
+const _PANO_H = 1080, _PANO_W = 8000;
+let _camGyroVu = false;
+function _camPanoGyro(e) {
+  const p = _cam && _cam.pano; if (!p || p.fini) return;
+  const r = e.rotationRate; if (!r || r.gamma == null) return;
+  _camGyroVu = true;
+  const t = performance.now();
+  if (p.tg) p.angle += r.gamma * (t - p.tg) / 1000;
+  p.tg = t;
+}
+async function camPanoDebut() {
+  const v = document.getElementById('cam-a-video');
+  try { if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') await DeviceMotionEvent.requestPermission(); } catch (e) {}
+  if (!_cam) return;
+  const k = _PANO_H / v.videoHeight;
+  const c = document.createElement('canvas'); c.width = _PANO_W; c.height = _PANO_H;
+  _cam.pano = { c: c, g: c.getContext('2d'), k: k, angle: 0, tg: 0, fait: 0, sens: 0, fini: false, v: v, ppd: v.videoWidth * k / _PANO_FOV };
+  _camGyroVu = false;
+  window.addEventListener('devicemotion', _camPanoGyro);
+  const d = document.getElementById('cam-a-declencheur'); if (d) { d.style.background = '#e11d2a'; d.style.borderRadius = '18px'; }
+  const ap = document.getElementById('cam-a-pano-apercu'); if (ap) ap.style.display = 'block';
+  document.getElementById('cam-a-pano-aide').textContent = 'Tourne lentement, bien à plat… (appuie pour finir)';
+  const t0 = performance.now();
+  (function boucle() {
+    const p = _cam && _cam.pano; if (!p || p.fini) return;
+    /* où en est-on (px) ? gyroscope si présent, sinon 6 px par image */
+    let cible;
+    if (_camGyroVu) {
+      if (!p.sens && Math.abs(p.angle) > 2) p.sens = p.angle > 0 ? 1 : -1;
+      cible = p.sens ? Math.max(0, p.angle * p.sens) * p.ppd : 0;
+    } else if (performance.now() - t0 > 600) cible = p.fait + 6;   /* 0,6 s d'attente pour laisser le gyroscope répondre */
+    else cible = 0;
+    if (!p.fait && (!_camGyroVu || p.sens)) cible = Math.max(cible, 1);   /* 1re bande dès que le sens est connu */
+    const w = Math.round(cible - p.fait);
+    if (w > 0) {
+      const sw = w / p.k, sx = (p.v.videoWidth - sw) / 2;
+      const x = (p.sens < 0) ? (_PANO_W - p.fait - w) : p.fait;   /* vers la gauche : on remplit depuis la droite */
+      /* la 1re bande = la moitié gauche (ou droite) de l'image, pour démarrer au bord du cadre */
+      if (!p.fait) {
+        const demi = Math.round(p.v.videoWidth * p.k / 2);
+        if (p.sens < 0) p.g.drawImage(p.v, p.v.videoWidth / 2, 0, p.v.videoWidth / 2, p.v.videoHeight, _PANO_W - demi, 0, demi, _PANO_H);
+        else p.g.drawImage(p.v, 0, 0, p.v.videoWidth / 2, p.v.videoHeight, 0, 0, demi, _PANO_H);
+        p.fait = demi;
+      } else {
+        p.g.drawImage(p.v, sx, 0, sw, p.v.videoHeight, x, 0, w, _PANO_H);
+        p.fait += w;
+      }
+      const ap2 = document.getElementById('cam-a-pano-apercu');
+      if (ap2) { const g2 = ap2.getContext('2d'); ap2.width = ap2.clientWidth; ap2.height = ap2.clientHeight;
+        const hh = ap2.height, ww = Math.min(ap2.width, p.fait * hh / _PANO_H);
+        g2.clearRect(0, 0, ap2.width, hh);
+        const sx2 = (p.sens < 0) ? _PANO_W - p.fait : 0;
+        g2.drawImage(p.c, sx2, 0, p.fait, _PANO_H, 0, 0, ww, hh); }
+      if (p.fait >= _PANO_W - 20) { camPanoStop(); return; }
+    }
+    requestAnimationFrame(boucle);
+  })();
+}
+function camPanoStop() {
+  const p = _cam && _cam.pano; if (!p) return;
+  p.fini = true; _cam.pano = null;
+  window.removeEventListener('devicemotion', _camPanoGyro);
+  const d = document.getElementById('cam-a-declencheur'); if (d) { d.style.background = 'rgba(255,255,255,.25)'; d.style.borderRadius = '50%'; }
+  const ap = document.getElementById('cam-a-pano-apercu'); if (ap) ap.style.display = 'none';
+  const aide = document.getElementById('cam-a-pano-aide'); if (aide) aide.textContent = 'Appuie, puis tourne lentement →';
+  if (p.fait < 50) return;
+  /* on garde la partie remplie, et on finit par la moitié restante de l'image (bord du cadre) */
+  const demi = Math.round(p.v.videoWidth * p.k / 2);
+  const W = Math.min(_PANO_W, p.fait + demi);
+  const out = document.createElement('canvas'); out.width = W; out.height = _PANO_H;
+  const g = out.getContext('2d');
+  if (p.sens < 0) {
+    g.drawImage(p.c, _PANO_W - p.fait, 0, p.fait, _PANO_H, W - p.fait, 0, p.fait, _PANO_H);
+    if (p.v.videoWidth) g.drawImage(p.v, 0, 0, p.v.videoWidth / 2, p.v.videoHeight, 0, 0, W - p.fait, _PANO_H);
+  } else {
+    g.drawImage(p.c, 0, 0, p.fait, _PANO_H, 0, 0, p.fait, _PANO_H);
+    if (p.v.videoWidth) g.drawImage(p.v, p.v.videoWidth / 2, 0, p.v.videoWidth / 2, p.v.videoHeight, p.fait, 0, W - p.fait, _PANO_H);
+  }
+  out.toBlob(function (bl) {
+    if (!bl || !_cam) return;
+    _cam.photos.push(new File([bl], 'pano-' + Date.now() + '.jpg', { type: 'image/jpeg' }));
+    const im = document.createElement('img'); im.src = URL.createObjectURL(bl);
+    im.setAttribute('style', 'height:40px;width:auto;border-radius:6px;flex-shrink:0;border:1px solid #fff;');
+    document.getElementById('cam-a-vign').appendChild(im);
+    document.getElementById('cam-a-nb').textContent = String(_cam.photos.length);
+  }, 'image/jpeg', 0.88);
+}
 function camFermer() {
+  if (_cam && _cam.pano) { _cam.pano.fini = true; window.removeEventListener('devicemotion', _camPanoGyro); }
   if (_cam && _cam.flux) _cam.flux.getTracks().forEach(function (t) { t.stop(); });
   _cam = null;
   const o = document.getElementById('cam-app'); if (o) o.remove();
@@ -46838,11 +46942,12 @@ function camPhototheque() {
 }
 async function camTermine() {
   const c = _cam; if (!c) return;
+  if (c.pano) camPanoStop();   /* v2398 : un pano en cours est terminé et gardé */
   let files = c.photos;
   const inp = c.input;
   camFermer();
   if (!files.length) return;
-  if (files.length > 1 && (c.mode === 'planche' || inp.dataset.serieUn)) {
+  if (files.length > 1 && (c.mode === 'planche' || inp.dataset.serieUn)) {   /* en mode Pano : chaque pano part séparément */
     try { files = [await _seriePlanche(files)]; } catch (e) { showToast('Planche impossible'); return; }
   }
   const dt = new DataTransfer();
