@@ -1,3 +1,4 @@
+
 /* ═══════════════════════════════════════════════════════════════════════════════════════
    Canal 7 — SERVICE WORKER
 
@@ -24,7 +25,7 @@
      · une navigation rend TOUJOURS une `Response`, jamais `undefined` ;
      · on ne fait le menage QUE si le nouveau cache sait ouvrir l'app.
    ═══════════════════════════════════════════════════════════════════════════════════════ */
-const CACHE_NAME = 'canal7-v2397';
+const CACHE_NAME = 'canal7-v2398';
 const SHARE_CACHE = 'canal7-share';
 
 /* VITAL : ce sans quoi l'app ne peut pas s'ouvrir hors reseau. */
